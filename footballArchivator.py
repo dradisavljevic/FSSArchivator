@@ -56,6 +56,8 @@ with open('data.csv', 'a') as csvFile:
             time.sleep(1)
             game_buttons = driver.find_elements_by_class_name('page-link')
             driver.execute_script('arguments[0].click();', game_buttons[2])
+            page_source = driver.page_source
+            soup = bs4.BeautifulSoup(page_source, 'lxml')
 
             match_selector = soup.find_all('tr', {'class': 'result-row'})
 
