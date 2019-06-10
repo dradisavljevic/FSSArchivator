@@ -9,7 +9,6 @@ verify_ssl = true
 beautifulsoup4 = "*"
 selenium = "*"
 lxml = "*"
-csv = "*"
 
 [requires]
 python_version = "3.7"
