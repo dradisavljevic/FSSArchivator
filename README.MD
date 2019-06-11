@@ -23,7 +23,7 @@ pipenv install
 this will install all the necessary package dependencies. Finally, run the project like so:
 
 ```
-pipenv run python FSSArchivator.py
+pipenv run python fssArchivator.py
 ```
 
 After some time, all the acquired data will appear in the data.csv file.
