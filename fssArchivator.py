@@ -44,8 +44,7 @@ def append_to_csv(source, driver, league_level, football_clubs, identifier):
             if season_links[j].text.strip().replace('"','')=='2005-2006':
                 break
             league_season = season_links[j].text.strip().replace('"','')
-            if j!=0:
-                driver.get(cfg.root_link+season_links[j]['href'])
+            driver.get(cfg.root_link+season_links[j]['href'])
             game_buttons = driver.find_elements_by_class_name('page-link')
             driver.execute_script('arguments[0].click();', game_buttons[0])
             page_source = driver.page_source
@@ -87,7 +86,11 @@ def append_to_csv(source, driver, league_level, football_clubs, identifier):
                         identifier = identifier + 1
                     guest_id = football_clubs[guest_site_id]
                     goals_host = match.find('span', {'class': 'res-1'}).text.strip().replace('"','')
+                    if not goals_host:
+                        goals_host = '0'
                     goals_guest = match.find('span', {'class': 'res-2'}).text.strip().replace('"','')
+                    if not goals_guest:
+                        goals_guest = '0'
                     row = [league_name, league_level, league_season, matchday, match_date, match_time, host_id, host_name, host_city, host_url, guest_id, guest_name, guest_city, guest_url, goals_host, goals_guest]
                     writer.writerow(row)
                     print('Writing :' + league_name + ' ' + league_season + ' matchday ' + matchday)
