@@ -1,15 +1,23 @@
 import bs4
 import csv
 import os
-import selenium
 from selenium import webdriver
 import time
 import configuration as cfg
+
+class Link(object):
+    def __init__(self, url=None, id=None, href=None, level=None, scraped=False):
+             self.url = url
+             self.id = id
+             self.href = href
+             self.level = level
+             self.scraped = scraped
 
 def main():
     football_clubs = {}
     identifier = 1
     scraped_leagues = []
+    links_to_scrape = []
 
     with open(cfg.EXPORT_FILE_NAME, 'w') as writeFile:
         writer = csv.writer(writeFile)
@@ -20,7 +28,7 @@ def main():
     options = webdriver.ChromeOptions()
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--incognito')
-    #options.add_argument('--headless')
+    options.add_argument('--headless')
     driver = webdriver.Chrome(os.path.join(os.getcwd(), cfg.DRIVER_NAME), options=options)
 
     driver.get(cfg.SUPERLIGA_START_PAGE)
@@ -36,12 +44,12 @@ def main():
                 break
             level = 1
             offset = 0
-            football_clubs, identifier, scraped_leagues = scrape_match(season_links[j], driver, level, football_clubs, identifier, writer, scraped_leagues, offset)
+            football_clubs, identifier, scraped_leagues, links_to_scrape = scrape_match(season_links[j], driver, level, football_clubs, identifier, writer, scraped_leagues, offset, links_to_scrape)
     csvFile.close()
 
     driver.close()
 
-def scrape_match(link, driver, league_level, football_clubs, identifier, writer, scraped_leagues, offset):
+def scrape_match(link, driver, league_level, football_clubs, identifier, writer, scraped_leagues, offset, links_to_scrape):
     league_season = link.text.strip().replace('"','')
     scrape_link = cfg.ROOT_LINK+link['href']
     league_link = link['href']
@@ -63,10 +71,14 @@ def scrape_match(link, driver, league_level, football_clubs, identifier, writer,
         else:
             matchday_count = len(matchday_selector.find_all('option'))
         for i in range(0,matchday_count):
-            time.sleep(1)
+            game_buttons = driver.find_elements_by_class_name('page-link')
             if more_matchdays:
                 game_buttons = driver.find_elements_by_class_name('page-link')
-                driver.execute_script('arguments[0].click();', game_buttons[2])
+                try:
+                    driver.execute_script('arguments[0].click();', game_buttons[2])
+                except StaleElementReferenceException as e:
+                    game_buttons = driver.find_elements_by_class_name('page-link')
+                    driver.execute_script('arguments[0].click();', game_buttons[2])
                 soup = get_soup(driver)
             tables = soup.find_all('table', {'class': 'ssnet-results'})
             if not more_matchdays:
@@ -106,6 +118,12 @@ def scrape_match(link, driver, league_level, football_clubs, identifier, writer,
                 print('Writing: ' + league_name + ' Season ' + league_season + ' Matchday ' + str(matchday))
             matchday = matchday + 1
         scraped_leagues.append(league_link.split('/')[2])
+        if all(scrape_link.id != league_link.split('/')[2] for scrape_link in links_to_scrape):
+            links_to_scrape.append(Link(cfg.ROOT_LINK+league_link, league_link.split('/')[2], league_link, league_level, False))
+        for i in range(0,len(links_to_scrape)):
+            if league_link.split('/')[2] == links_to_scrape[i].id:
+                links_to_scrape[i].scraped = True
+
         soup = get_soup(driver)
         league_list = soup.find('div',{'class': 'league-nav'})
         league_tabs = league_list.find_all('li', {'role': 'presentation'})
@@ -114,70 +132,37 @@ def scrape_match(link, driver, league_level, football_clubs, identifier, writer,
         for j in range(0,len(league_tabs)):
             next_league = league_tabs[j].find('a')
             if j != 0:
-                selenium_tabs[j].send_keys(selenium.webdriver.common.keys.Keys.SPACE)
+                webdriver.ActionChains(driver).move_to_element(selenium_tabs[j]).click(selenium_tabs[j]).perform()
             soup = get_soup(driver)
             league_container = soup.find('div', {'class': 'tab-content'})
             crawl_league_container = league_container.find('div', {'class': 'active'})
             leagues = crawl_league_container.find_all('a')
-            exit = False
             for league in leagues:
-                if league['href'].split('/')[2] not in scraped_leagues:
-                    exit = True
-                    if next_league.text.strip().replace('"','')=='Niži rang':
-                        if offset == 0:
-                            league_level = league_level + 1
-                        else:
-                            offset = offset - 1
-                    elif next_league.text.strip().replace('"','')=='Liga višeg ranga':
-                        offset = offset + 1
-                    league_link=league['href']
-                    scrape_link = cfg.ROOT_LINK+league_link
-                    break
-            if exit:
-                break
-            elif j == len(league_tabs)-1:
-                league_link, scrape_link, league_level = dead_end_prevention(league_tabs, selenium_tabs, driver, league_level)
-                break
-    return football_clubs, identifier, scraped_leagues
+                if next_league.text.strip().replace('"','')=='Niži rang':
+                    next_league_level = league_level + 1
+                elif next_league.text.strip().replace('"','')=='Liga višeg ranga':
+                    next_league_level = league_level - 1
+                else:
+                    next_league_level = league_level
+                if all(scrape_link.id != league['href'].split('/')[2] for scrape_link in links_to_scrape):
+                    links_to_scrape.append(Link(cfg.ROOT_LINK+league['href'], league['href'].split('/')[2], league['href'], next_league_level, False))
+        next_link = None
+        for link in links_to_scrape:
+            if link.scraped == False:
+                if next_link != None and next_link.level > link.level:
+                    next_link = link
+                elif next_link == None:
+                    next_link = link
+        league_link = next_link.href
+        scrape_link = next_link.url
+        league_level = next_link.level
+
+    return football_clubs, identifier, scraped_leagues, links_to_scrape
 
 def get_soup(driver):
     page_source = driver.page_source
     soup = bs4.BeautifulSoup(page_source, 'lxml')
     return soup
-
-def dead_end_prevention(league_tabs, selenium_tabs, driver, level):
-    for i in range(0,len(league_tabs)):
-        next_league = league_tabs[i].find('a')
-        if next_league.text.strip().replace('"','')=='Ostala takmičenja':
-            selenium_tabs[i].click()
-            break
-    soup = get_soup(driver)
-    league_container = soup.find('div', {'class': 'tab-content'})
-    crawl_league_container = league_container.find('div', {'class': 'active'})
-    leagues = crawl_league_container.find_all('a')
-    exit = False
-    for league in leagues:
-        driver.get(cfg.ROOT_LINK+league['href'])
-        soup = get_soup(driver)
-        league_list = soup.find('div',{'class': 'league-nav'})
-        league_tabs = league_list.find_all('li', {'role': 'presentation'})
-        selenium_tabs = driver.find_elements_by_xpath('//*/a[@role="tab"]')
-        for i in range(0,len(league_tabs)):
-            next_league = league_tabs[i].find('a')
-            if next_league.text.strip().replace('"','')=='Niži rang':
-                selenium_tabs[i].click()
-                soup = get_soup(driver)
-                league_container = soup.find('div', {'class': 'tab-content'})
-                crawl_league_container = league_container.find('div', {'class': 'active'})
-                leagues = crawl_league_container.find_all('a')
-                league_link=leagues[0]['href']
-                link = cfg.ROOT_LINK+league_link
-                level = level + 1
-                exit = True
-                break
-        if exit:
-            break
-    return league_link, link, level
 
 
 if __name__ == '__main__':
