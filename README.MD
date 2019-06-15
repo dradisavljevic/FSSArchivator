@@ -26,8 +26,8 @@ this will install all the necessary package dependencies. Finally, run the proje
 pipenv run python fssArchivator.py
 ```
 
-After some time, all the acquired data will appear in the data.csv file.
+After some time, all the acquired data will appear in the in a .csv file.
 
 ## Improvements
 
-Current project only covers the first three levels on the Serbia Football League system. Future holds possibility of expanding it on lower levels, as well as including the playoff and playout games played in the higher league system.
+Current project only covers the first three levels on the Serbia Football League system, as well as the three levels of Montenegrin football system. Future holds possibility of expanding it on lower levels of the Serbian league system..
