@@ -2,6 +2,7 @@ import bs4
 import csv
 import os
 from selenium import webdriver
+from selenium.common.exceptions import StaleElementReferenceException
 import time
 import configuration as cfg
 
@@ -40,11 +41,12 @@ def main():
         seasons_wrapper = menu.find('ul', {'class': 'dropdown-menu'})
         season_links = seasons_wrapper.find_all('a')
         for j in range(0,len(season_links)):
-            if season_links[j].text.strip().replace('"','')=='2005-2006':
-                break
-            level = 1
-            offset = 0
-            football_clubs, identifier, scraped_leagues, links_to_scrape = scrape_match(season_links[j], driver, level, football_clubs, identifier, writer, scraped_leagues, offset, links_to_scrape)
+            if season_links[j].text.strip().replace('"','')!=cfg.ONGOING_SEASON:
+                if season_links[j].text.strip().replace('"','')=='2005-2006':
+                    break
+                level = 1
+                offset = 0
+                football_clubs, identifier, scraped_leagues, links_to_scrape = scrape_match(season_links[j], driver, level, football_clubs, identifier, writer, scraped_leagues, offset, links_to_scrape)
     csvFile.close()
 
     driver.close()
@@ -79,6 +81,7 @@ def scrape_match(link, driver, league_level, football_clubs, identifier, writer,
                 except StaleElementReferenceException as e:
                     game_buttons = driver.find_elements_by_class_name('page-link')
                     driver.execute_script('arguments[0].click();', game_buttons[2])
+                time.sleep(2)
                 soup = get_soup(driver)
             tables = soup.find_all('table', {'class': 'ssnet-results'})
             if not more_matchdays:
@@ -113,7 +116,11 @@ def scrape_match(link, driver, league_level, football_clubs, identifier, writer,
                 guest_id = football_clubs[guest_site_id]
                 goals_host = match.find('span', {'class': 'res-1'}).text.strip().replace('"','')
                 goals_guest = match.find('span', {'class': 'res-2'}).text.strip().replace('"','')
-                row = [league_name, league_level, league_season, matchday, match_date, match_time, host_id, host_name, host_city, host_url, guest_id, guest_name, guest_city, guest_url, goals_host, goals_guest]
+                if league_level == 0:
+                    level = 1
+                else:
+                    level = league_level
+                row = [league_name, level, league_season, matchday, match_date, match_time, host_id, host_name, host_city, host_url, guest_id, guest_name, guest_city, guest_url, goals_host, goals_guest]
                 writer.writerow(row)
                 print('Writing: ' + league_name + ' Season ' + league_season + ' Matchday ' + str(matchday))
             matchday = matchday + 1
@@ -128,7 +135,6 @@ def scrape_match(link, driver, league_level, football_clubs, identifier, writer,
         league_list = soup.find('div',{'class': 'league-nav'})
         league_tabs = league_list.find_all('li', {'role': 'presentation'})
         selenium_tabs = driver.find_elements_by_xpath('//*/a[@role="tab"]')
-
         for j in range(0,len(league_tabs)):
             next_league = league_tabs[j].find('a')
             if j != 0:
@@ -145,7 +151,8 @@ def scrape_match(link, driver, league_level, football_clubs, identifier, writer,
                 else:
                     next_league_level = league_level
                 if all(scrape_link.id != league['href'].split('/')[2] for scrape_link in links_to_scrape):
-                    links_to_scrape.append(Link(cfg.ROOT_LINK+league['href'], league['href'].split('/')[2], league['href'], next_league_level, False))
+                    if next_league_level!=4:
+                        links_to_scrape.append(Link(cfg.ROOT_LINK+league['href'], league['href'].split('/')[2], league['href'], next_league_level, False))
         next_link = None
         for link in links_to_scrape:
             if link.scraped == False:
@@ -153,9 +160,12 @@ def scrape_match(link, driver, league_level, football_clubs, identifier, writer,
                     next_link = link
                 elif next_link == None:
                     next_link = link
-        league_link = next_link.href
-        scrape_link = next_link.url
-        league_level = next_link.level
+        if next_link is not None:
+            league_link = next_link.href
+            scrape_link = next_link.url
+            league_level = next_link.level
+        else:
+            league_level = 4
 
     return football_clubs, identifier, scraped_leagues, links_to_scrape
 
