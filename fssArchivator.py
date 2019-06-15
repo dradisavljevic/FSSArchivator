@@ -15,40 +15,43 @@ class Link(object):
              self.scraped = scraped
 
 def main():
-    football_clubs = {}
-    identifier = 1
-    scraped_leagues = []
-    links_to_scrape = []
-
-    with open(cfg.EXPORT_FILE_NAME, 'w') as writeFile:
-        writer = csv.writer(writeFile)
-        writer.writerow(cfg.TITLE)
-
-    writeFile.close()
+    league_systems = [cfg.SERBIA_START_PAGE, cfg.MONTENEGRO_START_PAGE]
+    export_files = [cfg.SERBIA_EXPORT_FILE_NAME, cfg.MONTENEGRO_EXPORT_FILE_NAME]
 
     options = webdriver.ChromeOptions()
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--incognito')
-    options.add_argument('--headless')
+    #options.add_argument('--headless')
     driver = webdriver.Chrome(os.path.join(os.getcwd(), cfg.DRIVER_NAME), options=options)
 
-    driver.get(cfg.SUPERLIGA_START_PAGE)
-    soup = get_soup(driver)
+    for k in range(0, len(league_systems)):
+        football_clubs = {}
+        identifier = 1
+        scraped_leagues = []
+        links_to_scrape = []
+        with open(export_files[k], 'w') as writeFile:
+            writer = csv.writer(writeFile)
+            writer.writerow(cfg.TITLE)
 
-    with open(cfg.EXPORT_FILE_NAME, 'a') as csvFile:
-        writer = csv.writer(csvFile)
-        menu = soup.find('ul', {'class': 'page-menu-navs'})
-        seasons_wrapper = menu.find('ul', {'class': 'dropdown-menu'})
-        season_links = seasons_wrapper.find_all('a')
-        for j in range(0,len(season_links)):
-            if season_links[j].text.strip().replace('"','')!=cfg.ONGOING_SEASON:
-                if season_links[j].text.strip().replace('"','')=='2005-2006':
-                    break
-                level = 1
-                offset = 0
-                football_clubs, identifier, scraped_leagues, links_to_scrape = scrape_match(season_links[j], driver, level, football_clubs, identifier, writer, scraped_leagues, offset, links_to_scrape)
-    csvFile.close()
+        writeFile.close()
 
+        driver.get(league_systems[k])
+        soup = get_soup(driver)
+
+        with open(export_files[k], 'a') as csvFile:
+            writer = csv.writer(csvFile)
+            menu = soup.find('ul', {'class': 'page-menu-navs'})
+            seasons_wrapper = menu.find('ul', {'class': 'dropdown-menu'})
+            season_links = seasons_wrapper.find_all('a')
+            for j in range(0,len(season_links)):
+                if season_links[j].text.strip().replace('"','')!=cfg.ONGOING_SEASON:
+                    if season_links[j].text.strip().replace('"','')=='2005-2006':
+                        break
+                    level = 1
+                    offset = 0
+                    football_clubs, identifier, scraped_leagues, links_to_scrape = scrape_match(season_links[j], driver, level, football_clubs, identifier, writer, scraped_leagues, offset, links_to_scrape)
+        csvFile.close()
+        print('Data acquisition successfully completed!')
     driver.close()
 
 def scrape_match(link, driver, league_level, football_clubs, identifier, writer, scraped_leagues, offset, links_to_scrape):
