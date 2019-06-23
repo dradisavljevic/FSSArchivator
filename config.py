@@ -26,7 +26,9 @@ TITLE = [
     'Guest Team Hometown',
     'Guest Team URL',
     'Goals Host',
-    'Goals Guest'
+    'Goals Guest',
+    'Goals Host Half Time',
+    'Goals Guest Half Time'
     ]
 
 DRIVER_NAME = 'chromedriver'
