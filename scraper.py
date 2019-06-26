@@ -187,6 +187,15 @@ def match_to_csv_row(match, league_level, league_name, league_season, matchday, 
     guest_id = football_clubs[guest_site_id]
     goals_host = match.find('span', {'class': 'res-1'}).text.strip().replace('"', '')
     goals_guest = match.find('span', {'class': 'res-2'}).text.strip().replace('"', '')
+    if goals_host == None:
+        outcome = 'U'
+    else:
+        if (int(goals_host) > int(goals_guest)):
+            outcome = 'H'
+        elif (int(goals_guest) > int(goals_host)):
+            outcome = 'G'
+        else:
+            outcome = 'D'
     half_time = match.find('a', {'data-toggle': 'popover'})
     if half_time is not None:
         goals_host_half_time = half_time['data-content'].strip().replace('"', '')[1]
@@ -216,7 +225,8 @@ def match_to_csv_row(match, league_level, league_name, league_season, matchday, 
     goals_host,
     goals_guest,
     goals_host_half_time,
-    goals_guest_half_time
+    goals_guest_half_time,
+    outcome
     ]
     return row, football_clubs, identifier
 

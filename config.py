@@ -28,7 +28,8 @@ TITLE = [
     'Goals Host',
     'Goals Guest',
     'Goals Host Half Time',
-    'Goals Guest Half Time'
+    'Goals Guest Half Time',
+    'Game Outcome'
     ]
 
 DRIVER_NAME = 'chromedriver'
