@@ -96,8 +96,13 @@ def scrape_league_season(driver, football_clubs, identifier, writer, links_to_sc
         if not game_buttons:
             more_matchdays = False
         if more_matchdays:
+            old_content = get_webpage_content(driver)
             driver.execute_script('arguments[0].click();', game_buttons[0])
         webpage_content = get_webpage_content(driver)
+        if old_content != None:
+            while(old_content == webpage_content):
+                time.sleep(1)
+                webpage_content = get_webpage_content(driver)
         league_name = webpage_content.find('h1', {'class': 'page-name'}).text.strip().replace('"', '')
         matchday = 1
 
@@ -187,7 +192,7 @@ def match_to_csv_row(match, league_level, league_name, league_season, matchday, 
     guest_id = football_clubs[guest_site_id]
     goals_host = match.find('span', {'class': 'res-1'}).text.strip().replace('"', '')
     goals_guest = match.find('span', {'class': 'res-2'}).text.strip().replace('"', '')
-    if goals_host == None:
+    if goals_host == '' or goals_host == None:
         outcome = 'U'
     else:
         if (int(goals_host) > int(goals_guest)):
@@ -197,7 +202,7 @@ def match_to_csv_row(match, league_level, league_name, league_season, matchday, 
         else:
             outcome = 'D'
     half_time = match.find('a', {'data-toggle': 'popover'})
-    if half_time is not None:
+    if half_time is not None and half_time['data-content'].strip().replace('"', '')[0] == '(':
         goals_host_half_time = half_time['data-content'].strip().replace('"', '')[1]
         goals_guest_half_time = half_time['data-content'].strip().replace('"', '')[3]
     else:
