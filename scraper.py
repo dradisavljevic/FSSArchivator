@@ -25,6 +25,8 @@ def main():
 
     driver.close()
 
+    print('Scraping finished. Goodbye.')
+
 
 @dataclass
 class Link:
@@ -55,8 +57,6 @@ def get_webpage_content(driver):
 
 def scrape_and_write_to_csv(filename, webpage_content, driver):
     '''Creates new csv and writes scraped data inside'''
-    football_clubs = {} # Dictionary of all previously scraped football clubs
-    identifier = 1
     links_to_scrape = [] # List of links that are to be scraped
 
     # Create new blank csv file with just the title row
@@ -76,13 +76,12 @@ def scrape_and_write_to_csv(filename, webpage_content, driver):
                 if season_link.text.strip().replace('"', '') == cfg.SEASON_CUTOFF:
                     break
                 level = 1
-                football_clubs, identifier, links_to_scrape =\
-                 scrape_league_season(driver, football_clubs, identifier, writer, links_to_scrape, link=season_link, league_level=level)
+                links_to_scrape = scrape_league_season(driver, writer, links_to_scrape, link=season_link, league_level=level)
 
-    return football_clubs, links_to_scrape
+    return links_to_scrape
 
 
-def scrape_league_season(driver, football_clubs, identifier, writer, links_to_scrape, link, league_level):
+def scrape_league_season(driver, writer, links_to_scrape, link, league_level):
     '''Crawls through league seasons until it reaches the cutoff season'''
     league_season = link.text.strip().replace('"', '')
     # Inner text of the a tag holds current league season
@@ -117,7 +116,7 @@ def scrape_league_season(driver, football_clubs, identifier, writer, links_to_sc
         for i in range(0,matchday_count):
             match_selector = get_matches(old_table_data, more_matchdays, driver, webpage_content)
             for match in match_selector:
-                row, football_clubs, identifier = match_to_csv_row(match, league_level, league_name, league_season, matchday, football_clubs, identifier)
+                row = match_to_csv_row(match, league_level, league_name, league_season, matchday)
                 writer.writerow(row)
                 print('Writing: ' + league_name + ' Season ' + league_season + ' Matchday ' + str(matchday))
             old_table_data = match_selector
@@ -132,7 +131,7 @@ def scrape_league_season(driver, football_clubs, identifier, writer, links_to_sc
 
         scrape_link, league_link, league_level = get_next_league(webpage_content, driver, links_to_scrape, scrape_link, league_level)
 
-    return football_clubs, identifier, links_to_scrape
+    return links_to_scrape
 
 
 def get_matches(old_table_data, more_matchdays, driver, webpage_content):
@@ -170,7 +169,7 @@ def get_matches(old_table_data, more_matchdays, driver, webpage_content):
     return match_selector
 
 
-def match_to_csv_row(match, league_level, league_name, league_season, matchday, football_clubs, identifier):
+def match_to_csv_row(match, league_level, league_name, league_season, matchday):
     '''Converts the scraped match data to a csv row'''
     match_date = match.find('a', {'class': 'game-date'}).text.strip().replace('"', '')
     match_time = match.find('span', {'class': 'game-time'}).text.strip().replace('"', '')
@@ -179,17 +178,13 @@ def match_to_csv_row(match, league_level, league_name, league_season, matchday, 
     host_name = host_link.text
     host_url = cfg.ROOT_LINK + host_link['href']
     host_city = host_link['data-original-title']
-    host_site_id = host_url.split('/club/')[1].split('-')[0]
-    football_clubs, identifier = check_football_club_scraped(host_site_id, football_clubs, identifier)
-    host_id = football_clubs[host_site_id]
+    host_id = host_url.split('/club/')[1].split('-')[0]
     guest = match.find('td', {'class': 'team-guest'})
     guest_link = guest.find('a')
     guest_name = guest_link.text
     guest_url = cfg.ROOT_LINK + guest_link['href']
     guest_city = guest_link['data-original-title']
-    guest_site_id = guest_url.split('/club/')[1].split('-')[0]
-    football_clubs, identifier = check_football_club_scraped(guest_site_id, football_clubs, identifier)
-    guest_id = football_clubs[guest_site_id]
+    guest_id = guest_url.split('/club/')[1].split('-')[0]
     goals_host = match.find('span', {'class': 'res-1'}).text.strip().replace('"', '')
     goals_guest = match.find('span', {'class': 'res-2'}).text.strip().replace('"', '')
     if goals_host == '' or goals_host == None:
@@ -233,15 +228,7 @@ def match_to_csv_row(match, league_level, league_name, league_season, matchday, 
     goals_guest_half_time,
     outcome
     ]
-    return row, football_clubs, identifier
-
-
-def check_football_club_scraped(football_club_id, football_clubs, identifier):
-    '''Checks if the club is already present in the csv file'''
-    if football_club_id not in football_clubs:
-        football_clubs[football_club_id] = identifier
-        identifier = identifier + 1
-    return football_clubs, identifier
+    return row
 
 
 def get_next_league(webpage_content, driver, links_to_scrape, scrape_link, league_level):
