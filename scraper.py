@@ -30,7 +30,15 @@ def main():
 
 @dataclass
 class Link:
-    '''Class that holds information about links that are to be scraped'''
+    '''Class that holds information about links that are to be scraped.
+
+    Attributes:
+        url (str): Full URL to link.
+        id (str): ID extracted from link URL.
+        href (str): Part of the URL that can be attached to the ROOT_LINK specified in config file.
+        level (int): Level of the league on the league system pyramid, to which the URL redirects to.
+        scraped (bool): Information if the league has been scraped or not.
+    '''
     url: str
     id: str
     href: str
@@ -39,7 +47,11 @@ class Link:
 
 
 def create_webdriver():
-    '''Creates selenium webdriver'''
+    '''Creates selenium webdriver.
+
+    Returns:
+        selenium.webdriver.chrome.webdriver.WebDriver: Webdriver used to navigate the webpage content.
+    '''
     options = webdriver.ChromeOptions()
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--incognito')
@@ -49,14 +61,27 @@ def create_webdriver():
 
 
 def get_webpage_content(driver):
-    '''Scrapes the webpage using the BeautifulSoup module'''
+    '''Scrapes the webpage using the BeautifulSoup module.
+
+    Args:
+        driver (selenium.webdriver.chrome.webdriver.WebDriver): Webdriver used to navigate the webpage content.
+
+    Returns:
+        bs4.BeautifulSoup: Scraped webpage content parsed by lxml parser.
+    '''
     page_source = driver.page_source
     webpage_content = bs4.BeautifulSoup(page_source, 'lxml')
     return webpage_content
 
 
 def scrape_and_write_to_csv(filename, webpage_content, driver):
-    '''Creates new csv and writes scraped data inside'''
+    '''Creates new csv and writes scraped data inside.
+
+    Args:
+        filename (str): Name of the output file.
+        webpage_content (bs4.BeautifulSoup): Scraped webpage content parsed by lxml parser.
+        driver (selenium.webdriver.chrome.webdriver.WebDriver): Webdriver used to navigate the webpage content.
+    '''
     links_to_scrape = [] # List of links that are to be scraped
 
     # Create new blank csv file with just the title row
@@ -78,11 +103,20 @@ def scrape_and_write_to_csv(filename, webpage_content, driver):
                 level = 1
                 links_to_scrape = scrape_league_season(driver, writer, links_to_scrape, link=season_link, league_level=level)
 
-    return links_to_scrape
-
 
 def scrape_league_season(driver, writer, links_to_scrape, link, league_level):
-    '''Crawls through league seasons until it reaches the cutoff season'''
+    '''Crawls through league seasons until it reaches the cutoff season.
+
+    Args:
+        driver (selenium.webdriver.chrome.webdriver.WebDriver): Webdriver used to navigate the webpage content.
+        wrtier (csv.writer): Object that writes to output csv file.
+        links_to_scrape (list): List of league URL content containing information which leagues have previously been scraped.
+        link (str): Link of the first league to be scraped.
+        level (int): Level of the league to be scraped on pyramid.
+
+    Returns:
+        list: List of league URL content containing information which leagues have previously been scraped.
+    '''
     league_season = link.text.strip().replace('"', '')
     # Inner text of the a tag holds current league season
     scrape_link = cfg.ROOT_LINK + link['href']
@@ -135,7 +169,17 @@ def scrape_league_season(driver, writer, links_to_scrape, link, league_level):
 
 
 def get_matches(old_table_data, more_matchdays, driver, webpage_content):
-    '''Scrapes match result data from the website'''
+    '''Scrapes match result data from the website.
+
+    Args:
+        old_table_data (bs4.element.Tag): Html element containing list of results from previous matchday/league.
+        more_matchdays (bool): Contains information whether or not there is more matchdays, or is there only a single result table.
+        driver (selenium.webdriver.chrome.webdriver.WebDriver): Webdriver used to navigate the webpage content.
+        webpage_content (bs4.BeautifulSoup): Scraped webpage content parsed by lxml parser.
+
+    Returns:
+        bs4.element.Tag: Html element containing results of the matchday presented on the current webpage.
+    '''
     match_selector = []
 
     game_buttons = driver.find_elements_by_class_name('page-link')
@@ -170,7 +214,18 @@ def get_matches(old_table_data, more_matchdays, driver, webpage_content):
 
 
 def match_to_csv_row(match, league_level, league_name, league_season, matchday):
-    '''Converts the scraped match data to a csv row'''
+    '''Converts the scraped match data to a csv row.
+
+    Args:
+        match (bs4.element.Tag): Html element containing information on the outcome of the single match.
+        league_level (int): Leagues level in the league system.
+        league_name (str): Name of the league.
+        league_season (str): Season of the league.
+        matchday (int): Matchday number of the curent match.
+
+    Returns:
+        list: Row to be added to a csv file containing scraped match information.
+    '''
     match_date = match.find('a', {'class': 'game-date'}).text.strip().replace('"', '')
     match_time = match.find('span', {'class': 'game-time'}).text.strip().replace('"', '')
     host = match.find('td', {'class': 'team-host'})
@@ -232,7 +287,20 @@ def match_to_csv_row(match, league_level, league_name, league_season, matchday):
 
 
 def get_next_league(webpage_content, driver, links_to_scrape, scrape_link, league_level):
-    '''Picks url of the next league for crawler to follow'''
+    '''Picks url of the next league for crawler to follow.
+
+        Args:
+            webpage_content (bs4.BeautifulSoup): Scraped webpage content parsed by lxml parser.
+            driver (selenium.webdriver.chrome.webdriver.WebDriver): Webdriver used to navigate the webpage content.
+            links_to_scrape (list): List of league URL content containing information which leagues have previously been scraped.
+            scrape_link (str): Previously scraped leagues link.
+            league_level (int): Level on the pyramid of the previously scraped league.
+
+        Returns:
+            str: URL of the next league to be scraped.
+            str, NoneType: Part of the URL to the next league to be scraped.
+            int: Level of the next league on the league system pyramid.
+    '''
     webpage_content = get_webpage_content(driver)
     league_list = webpage_content.find('div', {'class': 'league-nav'})
     league_level_tabs = league_list.find_all('li', {'role': 'presentation'})
