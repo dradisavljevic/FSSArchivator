@@ -2,10 +2,12 @@ import bs4
 import config as cfg
 import csv
 from dataclasses import dataclass
+from datetime import datetime
 import os
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 import time
+import timeit
 
 
 def main():
@@ -15,11 +17,14 @@ def main():
     driver = create_webdriver()
 
     for index, league_system in enumerate(league_systems):
-
+        start_time = timeit.default_timer()
         driver.get(league_system)
         webpage_content = get_webpage_content(driver)
 
         scrape_and_write_to_csv(filename=export_files[index], webpage_content=webpage_content, driver=driver)
+        scraping_time = timeit.default_timer() - start_time
+        with open('scrapingtime.txt', 'a') as file:
+            file.write('Time necessary for scraping is: ' + str(scraping_time) + '\n')
 
         print('Data acquisition successfully completed!')
 
@@ -84,6 +89,13 @@ def scrape_and_write_to_csv(filename, webpage_content, driver):
     '''
     links_to_scrape = [] # List of links that are to be scraped
 
+    today = datetime.today() # Calculate ongoing season
+    ongoing_season = ''
+    if today.month < 7:
+        ongoing_season = str(int(today.year)-1) + '-' + str(today.year)
+    else:
+        ongoing_season = str(today.year) + '-' + str(int(today.year)+1)
+
     # Create new blank csv file with just the title row
     with open(filename, 'w') as csvFile:
         writer = csv.writer(csvFile)
@@ -97,7 +109,7 @@ def scrape_and_write_to_csv(filename, webpage_content, driver):
         season_links = seasons_wrapper.find_all('a')
         for season_link in season_links:
             # Ongoing season has unfinished games within it, so it is not of interest
-            if season_link.text.strip().replace('"', '') != cfg.ONGOING_SEASON:
+            if season_link.text.strip().replace('"', '') != ongoing_season:
                 if season_link.text.strip().replace('"', '') == cfg.SEASON_CUTOFF:
                     break
                 level = 1
@@ -138,7 +150,6 @@ def scrape_league_season(driver, writer, links_to_scrape, link, league_level):
                 webpage_content = get_webpage_content(driver)
         league_name = webpage_content.find('h1', {'class': 'page-name'}).text.strip().replace('"', '')
         matchday = 1
-
         matchday_selector = webpage_content.find('select', {'id': 'kolo'})
         if not more_matchdays:
             matchday_count = 1
@@ -147,8 +158,9 @@ def scrape_league_season(driver, writer, links_to_scrape, link, league_level):
 
         # Previous matchday scrape data
         old_table_data = {}
+        time.sleep(1)
         for i in range(0,matchday_count):
-            match_selector = get_matches(old_table_data, more_matchdays, driver, webpage_content)
+            match_selector = get_matches(i, old_table_data, more_matchdays, driver, webpage_content)
             for match in match_selector:
                 row = match_to_csv_row(match, league_level, league_name, league_season, matchday)
                 writer.writerow(row)
@@ -168,7 +180,7 @@ def scrape_league_season(driver, writer, links_to_scrape, link, league_level):
     return links_to_scrape
 
 
-def get_matches(old_table_data, more_matchdays, driver, webpage_content):
+def get_matches(i, old_table_data, more_matchdays, driver, webpage_content):
     '''Scrapes match result data from the website.
 
     Args:
@@ -184,13 +196,29 @@ def get_matches(old_table_data, more_matchdays, driver, webpage_content):
 
     game_buttons = driver.find_elements_by_class_name('page-link')
     if more_matchdays:
-        try:
-            driver.execute_script('arguments[0].click();', game_buttons[2])
-        except StaleElementReferenceException as e:
-            # In case the element didn't refresh in time, wait a bit
-            time.sleep(2)
+        soup = get_webpage_content(driver)
+        select_list = soup.find('select', {'id': 'kolo'})
+        option = select_list.find_all('option', selected=True)
+        selected_option = int(option[0]['value'])
+        iter = i + 1
+        if iter != selected_option:
             game_buttons = driver.find_elements_by_class_name('page-link')
-            driver.execute_script('arguments[0].click();', game_buttons[2])
+            if iter > selected_option:
+                try:
+                    driver.execute_script('arguments[0].click();', game_buttons[2])
+                except StaleElementReferenceException as e:
+                    # In case the element didn't refresh in time, wait a bit
+                    time.sleep(2)
+                    game_buttons = driver.find_elements_by_class_name('page-link')
+                    driver.execute_script('arguments[0].click();', game_buttons[2])
+            elif iter < selected_option:
+                try:
+                    driver.execute_script('arguments[0].click();', game_buttons[1])
+                except StaleElementReferenceException as e:
+                    # In case the element didn't refresh in time, wait a bit
+                    time.sleep(2)
+                    game_buttons = driver.find_elements_by_class_name('page-link')
+                    driver.execute_script('arguments[0].click();', game_buttons[1])
         time.sleep(1)
         webpage_content = get_webpage_content(driver)
     tables = webpage_content.find_all('table', {'class': 'ssnet-results'})

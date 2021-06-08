@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
 ROOT_LINK = 'https://www.srbijasport.net'
-SERBIA_START_PAGE = 'https://www.srbijasport.net/league/3855/games'
-MONTENEGRO_START_PAGE = 'https://www.srbijasport.net/league/3861/games'
+SERBIA_START_PAGE = 'https://www.srbijasport.net/league/4428/games'
+MONTENEGRO_START_PAGE = 'https://www.srbijasport.net/league/4472/games'
 SERBIA_EXPORT_FILE_NAME = 'serbiaData.csv'
 MONTENEGRO_EXPORT_FILE_NAME = 'montenegroData.csv'
 
-ONGOING_SEASON = '2019-2020'
 SEASON_CUTOFF = '2005-2006'
 LEVEL_CUTOFF = 5
 
